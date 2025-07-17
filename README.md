@@ -25,13 +25,13 @@ Key Features
 Data Sources
 ------------
 
-File: Timeline Follow-Back (CSV format)
+File: Timeline Follow-Back (CSV format) <br>	
 Description: TLFB data (visits: ses-V01 & ses-V02)
 
-File: ASSIST V1 (CSV format)
+File: ASSIST V1 (CSV format) <br>
 Description: ASSIST V1 data (visit: ses-V01)
 
-File: ASSISTV2 (CSV format)
+File: ASSISTV2 (CSV format) <br>
 Description: ASSIST V2 data (visit: ses-V02)
 
 Note: File paths are currently hardcoded and should be updated based on your environment (lines 16-18).
@@ -41,10 +41,11 @@ Dependencies
 
 This script requires the following R packages:
 
-install.packages(c("tidyverse", "data.table"))
+`install.packages(c("tidyverse", "data.table"))`
 
-library(tidyverse)
-library(data.table)
+`library(tidyverse)`
+
+`library(data.table)`
 
 Processing Steps
 ----------------
