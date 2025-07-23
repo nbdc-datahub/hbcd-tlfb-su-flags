@@ -6,7 +6,7 @@
 #  - Merging ASSIST data to impute missing TLFB values
 #  - Creating derived flags for substance use patterns across weeks 3–9
 #  - Generating summary variables for use in downstream analysis
-# Last updated: 2025-06-27
+# Last updated: 2025-07-23
 
 # Load required libraries
 library(tidyverse)
@@ -20,7 +20,7 @@ assistv1_path <- "assistv1.csv"
 # Load and clean ASSIST V1
 assistv1 <- fread(assistv1_path) %>%
   select(
-    id, visit_label,
+    particpant_id, session_id,
     pex_bm_assistv1_during__use_001,
     pex_bm_assistv1_during__use_002,
     pex_bm_assistv1_during__use_003,
@@ -36,13 +36,13 @@ assistv1 <- fread(assistv1_path) %>%
     pex_bm_assistv1_lt__use_008,
     pex_bm_assistv1_lt__use_009
   ) %>%
-  filter(visit_label != "ses-V02")
+  filter(session_id != "ses-V02")
 
 # Load and clean ASSIST V2
 assistv2 <- fread(assistv2_path) %>%
-  filter(visit_label == "ses-V02") %>%
+  filter(session_id == "ses-V02") %>%
   select(
-    id,
+    particpant_id,
     pex_bm_assistv2_end__use_001,
     pex_bm_assistv2_end__use_002,
     pex_bm_assistv2_end__use_003,
@@ -55,19 +55,19 @@ assistv2 <- fread(assistv2_path) %>%
 
 # Load TLFB (alcohol only)
 alc <- fread(tlfb_path) %>%
-  select(id, visit_label, pex_ch_tlfb_self_report_alcohol) %>%
+  select(particpant_id, session_id, pex_ch_tlfb_self_report_alcohol) %>%
   mutate(visit_num = case_when(
-    visit_label == "ses-V01" ~ 1,
-    visit_label == "ses-V02" ~ 2
+    session_id == "ses-V01" ~ 1,
+    session_id == "ses-V02" ~ 2
   )) %>%
-  select(-visit_label) %>%
+  select(-session_id) %>%
   pivot_wider(names_from = visit_num, values_from = pex_ch_tlfb_self_report_alcohol,
               names_prefix = "alc_flag")
 
 # Merge with ASSIST and apply rescue rules
 alc <- alc %>%
-  full_join(assistv1, by = "id") %>%
-  full_join(assistv2, by = "id") %>%
+  full_join(assistv1, by = "particpant_id") %>%
+  full_join(assistv2, by = "particpant_id") %>%
   mutate(
     alc_flag1 = ifelse(is.na(alc_flag1) & 
                          (pex_bm_assistv1_lt__use_002 == 0 | pex_bm_assistv1_during__use_002 == 0), 0, alc_flag1),
@@ -77,20 +77,20 @@ alc <- alc %>%
     alc_flag2 = ifelse(is.na(alc_flag2) & alc_flag1 == 0 & pex_bm_assistv2_end__use_002 == 0, 0, alc_flag2),
     alc_flag2 = ifelse(alc_flag1 == 1, 1, alc_flag2)
   ) %>%
-  select(id, alc_flag1, alc_flag2)
+  select(particpant_id, alc_flag1, alc_flag2)
 
 # Load TLFB full and clean
 tlfb <- fread(tlfb_path) %>%
-  mutate(num_vis = ave(id, id, FUN = length)) %>%
-  mutate(across(contains("_wk_08"), ~ ifelse(visit_label == "ses-V01", NA, .))) %>%
-  mutate(across(contains("_wk_09"), ~ ifelse(visit_label == "ses-V01", NA, .)))
+  mutate(num_vis = ave(particpant_id, particpant_id, FUN = length)) %>%
+  mutate(across(contains("_wk_08"), ~ ifelse(session_id == "ses-V01", NA, .))) %>%
+  mutate(across(contains("_wk_09"), ~ ifelse(session_id == "ses-V01", NA, .)))
 
 #Create new weekly frequency variables for nicotine, cannabis, and opioids
 for (i in 3:9) {
   wk_str <- sprintf("0%d", i)
   
   tlfb <- tlfb %>%
-    group_by(id) %>%
+    group_by(particpant_id) %>%
     mutate(
       !!paste0("nic_wk", i) := {
         x <- .data[[paste0("pex_ch_tlfb_nic_wk_", wk_str)]]
@@ -111,7 +111,7 @@ for (i in 3:9) {
 #Limit dataset to only variables required for cleaning
 tlfb <- tlfb %>%
   select(
-    id, num_vis,
+    particpant_id, num_vis,
     nic_wk3, thc_wk3, opd_wk3,
     nic_wk4, thc_wk4, opd_wk4,
     nic_wk5, thc_wk5, opd_wk5,
@@ -126,8 +126,8 @@ tlfb <- tlfb %>% distinct()
 
 #Merge in ASSIST data (V01 & V02)
 tlfb <- tlfb %>%
-  full_join(assistv1, by = "id") %>%
-  full_join(assistv2, by = "id")
+  full_join(assistv1, by = "particpant_id") %>%
+  full_join(assistv2, by = "particpant_id")
 
 #OPD LT USE
 # Define the 4 opioid variables
@@ -345,6 +345,6 @@ tlfb$opd_flag2[is.na(tlfb$opd_3_9) & !is.na(tlfb$opd_3_7) & tlfb$opd_3_7 >= 2] <
 
 #Merge alcohol indicators
 final <- tlfb %>%
-  select(id, ends_with("flag1"), ends_with("flag2")) %>%
-  full_join(alc, by = "id")
+  select(particpant_id, ends_with("flag1"), ends_with("flag2")) %>%
+  full_join(alc, by = "particpant_id")
 
